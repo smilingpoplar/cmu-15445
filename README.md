@@ -1,150 +1,62 @@
-<img src="logo/bustub-whiteborder.svg" alt="BusTub Logo" height="200">
+## CMU 15-445 数据库系统 [(2021)](https://15445.courses.cs.cmu.edu/fall2021/schedule.html)
 
------------------
+课程视频：[2019](https://www.youtube.com/playlist?list=PLSE8ODhjZXjbohkNBWQs_otTrBTrjyohi)，[17-19课看2018](https://www.youtube.com/watch?v=E0zvyYkdXbU&list=PLSE8ODhjZXja3hgmuwhf89qboV1kOxMx7&index=17)
 
-[![Build Status](https://github.com/cmu-db/bustub/actions/workflows/cmake.yml/badge.svg)](https://github.com/cmu-db/bustub/actions/workflows/cmake.yml)
+### [proj0](https://15445.courses.cs.cmu.edu/fall2021/project0/) C++ Primer
 
-BusTub is a relational database management system built at [Carnegie Mellon University](https://db.cs.cmu.edu) for the [Introduction to Database Systems](https://15445.courses.cs.cmu.edu) (15-445/645) course. This system was developed for educational purposes and should not be used in production environments.
+#### 环境搭建
+- cmake找不到clang-format和clang-tidy：如果homebrew装在/opt/homebrew，修改CMakeLists.txt的BUSTUB_CLANG_SEARCH_PATH：`set(BUSTUB_CLANG_SEARCH_PATH ... "/opt/homebrew/opt/llvm@12/bin")`
 
-**WARNING: IF YOU ARE A STUDENT IN THE CLASS, DO NOT DIRECTLY FORK THIS REPO. DO NOT PUSH PROJECT SOLUTIONS PUBLICLY. THIS IS AN ACADEMIC INTEGRITY VIOLATION AND CAN LEAD TO GETTING YOUR DEGREE REVOKED, EVEN AFTER YOU GRADUATE.**
-
-## Cloning this Repository
-
-The following instructions are adapted from the Github documentation on [duplicating a repository](https://docs.github.com/en/github/creating-cloning-and-archiving-repositories/creating-a-repository-on-github/duplicating-a-repository). The procedure below walks you through creating a private BusTub repository that you can use for development.
-
-1. Go [here](https://github.com/new) to create a new repository under your account. Pick a name (e.g. `bustub-private`) and select **Private** for the repository visibility level.
-2. On your development machine, create a bare clone of the public BusTub repository:
-   ```
-   $ git clone --bare https://github.com/cmu-db/bustub.git bustub-public
-   ```
-3. Next, [mirror](https://git-scm.com/docs/git-push#Documentation/git-push.txt---mirror) the public BusTub repository to your own private BusTub repository. Suppose your GitHub name is `student` and your repository name is `bustub-private`. The procedure for mirroring the repository is then:
-   ```
-   $ cd bustub-public
-   
-   # If you pull / push over HTTPS
-   $ git push --mirror https://github.com/student/bustub-private.git
-
-   # If you pull / push over SSH
-   $ git push --mirror git@github.com:student/bustub-private.git
-   ```
-   This copies everything in the public BusTub repository to your own private repository. You can now delete your local clone of the public repository:
-   ```
-   $ cd ..
-   $ rm -rf bustub-public
-   ```
-4. Clone your private repository to your development machine:
-   ```
-   # If you pull / push over HTTPS
-   $ git clone https://github.com/student/bustub-private.git
-
-   # If you pull / push over SSH
-   $ git clone git@github.com:student/bustub-private.git
-   ```
-5. Add the public BusTub repository as a second remote. This allows you to retrieve changes from the CMU-DB repository and merge them with your solution throughout the semester:
-   ```
-   $ git remote add public https://github.com/cmu-db/bustub.git
-   ```
-   You can verify that the remote was added with the following command:
-   ```
-   $ git remote -v
-   origin	https://github.com/student/bustub-private.git (fetch)
-   origin	https://github.com/student/bustub-private.git (push)
-   public	https://github.com/cmu-db/bustub.git (fetch)
-   public	https://github.com/cmu-db/bustub.git (push)
-   ```
-6. You can now pull in changes from the public BusTub repository as needed with:
-   ```
-   $ git pull public master
-   ```
-
-We suggest working on your projects in separate branches. If you do not understand how Git branches work, [learn how](https://git-scm.com/book/en/v2/Git-Branching-Basic-Branching-and-Merging). If you fail to do this, you might lose all your work at some point in the semester, and nobody will be able to help you.
-
-## Build
-
-### Linux / Mac
-
-To ensure that you have the proper packages on your machine, run the following script to automatically install them:
+- 编译运行
+```
+mkdir build
+cd build
+cmake ..
+make -j starter_test
+./test/starter_test
+```
+- 若开启Debug：`cmake -DCMAKE_BUILD_TYPE=Debug ..`，AddressSanitizer可能误报heap-buffer-overflow
 
 ```
-$ sudo build_support/packages.sh
+export ASAN_OPTIONS=detect_container_overflow=0
 ```
 
-Then run the following commands to build the system:
-
+- 格式检查
 ```
-$ mkdir build
-$ cd build
-$ cmake ..
-$ make
+make format
+make check-lint
+make check-clang-tidy
 ```
+#### vscode
+- [vscode debugging with cmake-tools](https://vector-of-bool.github.io/docs/vscode-cmake-tools/debugging.html#debugging-with-cmake-tools-and-launch-json)
 
-If you want to compile the system in debug mode, pass in the following flag to cmake:
-Debug mode:
+  <details>
+    <summary>.vscode/launch.json 调试启动文件</summary>
+    
+    ```
+    {
+        "version": "0.2.0",
+        "configurations": [
+            {
+                "name": "(lldb) Debug",
+                "type": "cppdbg",
+                "request": "launch",
+                // Resolved by CMake Tools:
+                "program": "${command:cmake.launchTargetPath}",
+                "args": [],
+                "stopAtEntry": false,
+                "cwd": "${workspaceFolder}",
+                "environment": [],
+                "externalConsole": false,
+                "MIMode": "lldb"
+            }
+        ]
+    }
+    ```
+    </details>
+- 启动debug：Cmd+Shift+P，Cmake:设置调试目标，Cmake：调试
 
-```
-$ cmake -DCMAKE_BUILD_TYPE=Debug ..
-$ make
-```
-This enables [AddressSanitizer](https://github.com/google/sanitizers), which can generate false positives for overflow on STL containers. If you encounter this, define the environment variable `ASAN_OPTIONS=detect_container_overflow=0`.
-
-### Windows
-
-If you are using Windows 10, you can use the Windows Subsystem for Linux (WSL) to develop, build, and test Bustub. All you need is to [Install WSL](https://docs.microsoft.com/en-us/windows/wsl/install-win10). You can just choose "Ubuntu" (no specific version) in Microsoft Store. Then, enter WSL and follow the above instructions.
-
-If you are using CLion, it also [works with WSL](https://blog.jetbrains.com/clion/2018/01/clion-and-linux-toolchain-on-windows-are-now-friends).
-
-## Testing
-
-```
-$ cd build
-$ make check-tests
-```
-
-## Build environment
-
-If you have trouble getting cmake or make to run, an easy solution is to create a virtual container to build in. There are two options available:
-
-### Vagrant
-
-First, make sure you have Vagrant and Virtualbox installed
-```
-$ sudo apt update
-$ sudo apt install vagrant virtualbox
-```
-
-From the repository directory, run this command to create and start a Vagrant box:
-
-```
-$ vagrant up
-```
-
-This will start a Vagrant box running Ubuntu 20.02 in the background with all the packages needed. To access it, type
-
-```
-$ vagrant ssh
-```
-
-to open a shell within the box. You can find Bustub's code mounted at `/bustub` and run the commands mentioned above like normal.
-
-### Docker
-
-First, make sure that you have docker installed:
-```
-$ sudo apt update
-$ sudo apt install docker
-```
-
-From the repository directory, run these commands to create a Docker image and container:
-
-```
-$ docker build . -t bustub
-$ docker create -t -i --name bustub -v $(pwd):/bustub bustub bash
-```
-
-This will create a Docker image and container. To run it, type:
-
-```
-$ docker start -a -i bustub
-```
-
-to open a shell within the box. You can find Bustub's code mounted at `/bustub` and run the commands mentioned above like normal.
+  [若debug开始时卡住](https://github.com/microsoft/vscode-cpptools/issues/5805#issuecomment-1102836008)：暂时关闭"变量"面板
+#### gradescope
+- 注册2021Fall课程：邀请码4PR8G5，学校选Carnegie Mellon University
+- 提交前打包：`zip proj0.zip src/include/primer/p0_starter.h`
