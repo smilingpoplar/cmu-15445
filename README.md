@@ -75,3 +75,32 @@ make check-clang-tidy
 
 - 是个编译问题。最好写完一个task就提交gradescope测试。
 - 我遇到的问题：FlushAllPgsImp()中遍历写`for (auto [page_id, frame_id] : page_table_)`会报错，写`for (const auto &e : page_table_)`没问题
+
+### [proj2](https://15445.courses.cs.cmu.edu/fall2021/project2/) Extendible Hash Index
+#### Page布局
+实现基于磁盘的hash表，包括DirectoryPage和BucketPage
+- 所有内容都存在磁盘页中，通过BufferPoolManager获取page，再`reinterpret_cast<XXXPage *>(page)`成DirectoryPage或BucketPage。可以reinterpret_cast<>是因为Page结构的首字段为`char data_[PAGE_SIZE]{}`。
+- DirectoryPage和BucketPage不能添加成员变量，因为PAGE_SIZE=4K是固定的
+- DirectoryPage保存hash表元数据，含bucket_idx=>page_id的映射
+- BucketPage保存键值对，不允许键值都相同的重复值
+##### BucketPage
+页头位图occupied_和readable_
+- slot一旦占用就不释放，删除时只要置零readable_位，相当于设置tombstone标记
+- occupied_位图主要用来判断遍历终结，readable_位图表示slot是否可读
+
+#### Extendible Hashing
+[算法解释](https://www.geeksforgeeks.org/extendible-hashing-dynamic-approach-to-dbms/)
+- 初始化时新建1个DirectoryPage和1个BucketPage
+- 读写page后要`buffer_pool_manager_->UnpinPage()`，因为buffer_pool_manager_获取的都是pinned page
+- 一共`2^global_depth`个bucket，用`bucket_idx = Hash(key) & global_depth_mask`寻址
+- bucket的`local_depth <= global_depth`，有`2^(global_depth - local_depth)`个表项指向它
+- `table_latch_`读写锁用来锁DirectoryPage，`auto page = reinterpret_cast<Page *>(bucket_page);`后page所含读写锁用来锁BucketPage
+- 当插入键值时，若bucket已满，触发bucket分裂：若`local_depth == global_depth`，先把hash表项复制扩展一倍、`global_depth++`，这样就有两倍的表项指向原来的桶；bucket分裂就是新建一个桶，把指向原桶的一半表项指向新桶，在原桶和新桶两者间重新分配键值对。
+- split_image指一个bucket的镜像桶，把`bucket_idx ^ local_high_bit`而得。记(bucket_idx)_ld，ld表示local_depth，则(101)_1的镜像桶为(111)_1，(101)_0的镜像桶为(100)_0。
+- 当删除键值时，若`bucket->IsEmpty() && local_depth > 0 && local_depth == split_image_local_depth`，把空桶并入镜像桶：把所有指向原桶和镜像桶的表项都指向镜像桶，`local_depth--`；若所有`local_depth < global_depth`，`global_depth--`。并入后还应在镜像桶上继续尝试合并。
+
+##### gradescope上的测试用例
+- 本地测试用例太少，把[下面函数](https://github.com/smilingpoplar/cmu-15445/tree/main/test/gradescope/print_test_files.cpp)加入待提交文件（比如`extendible_hash_table.cpp`）中，提交gradescope，拷贝输出的测试用例代码。
+##### 调试
+- 在split或merge后用`VerifyIntegrity()`验证页表
+- 遇到异常退出，用`lldb ./test/xxx_test`启动，查看堆栈

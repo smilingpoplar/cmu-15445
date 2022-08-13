@@ -144,6 +144,9 @@ class HashTableBucketPage {
   char readable_[(BUCKET_ARRAY_SIZE - 1) / 8 + 1];
   // Flexible array member for page data.
   MappingType array_[1];
+
+ public:
+  std::vector<MappingType> StealKVs();
 };
 
 }  // namespace bustub

@@ -169,6 +169,9 @@ class ExtendibleHashTable {
   // Readers includes inserts and removes, writers are splits and merges
   ReaderWriterLatch table_latch_;
   HashFunction<KeyType> hash_fn_;
+
+ private:
+  bool NeedMerge(uint32_t bucket_idx, HASH_TABLE_BUCKET_TYPE *bucket_page, HashTableDirectoryPage *dir_page);
 };
 
 }  // namespace bustub
