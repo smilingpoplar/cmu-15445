@@ -60,3 +60,18 @@ make check-clang-tidy
 #### gradescope
 - 注册2021Fall课程：邀请码4PR8G5，学校选Carnegie Mellon University
 - 提交前打包：`zip proj0.zip src/include/primer/p0_starter.h`
+
+### [proj1](https://15445.courses.cs.cmu.edu/fall2021/project1/) Buffer Pool
+#### LRUReplacer
+- frame是个空槽，存放从磁盘读到内存的page
+- replacer只保存`unpinned frame`的frame_id。`pinned frame`对应的page正被引用，不能被换出内存，要从replacer中删除。
+#### BufferPoolManagerInstance
+- page_tables记录虚拟页page_id到物理页frame_id的映射
+- 空闲页优先从free_list中获取
+- 从replacer中换出物理页时，要回写脏页、删掉page_table中映射
+- 本类是Page的友元类，可访问Page的私有成员
+#### 若gradescope报错
+> The autograder failed to execute correctly. Please ensure that your submission is valid. Contact your course staff for help in debugging this issue. Make sure to include a link to this page so that they can help you most effectively.
+
+- 是个编译问题。最好写完一个task就提交gradescope测试。
+- 我遇到的问题：FlushAllPgsImp()中遍历写`for (auto [page_id, frame_id] : page_table_)`会报错，写`for (const auto &e : page_table_)`没问题
