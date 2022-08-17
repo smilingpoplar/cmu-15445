@@ -104,3 +104,57 @@ make check-clang-tidy
 ##### 调试
 - 在split或merge后用`VerifyIntegrity()`验证页表
 - 遇到异常退出，用`lldb ./test/xxx_test`启动，查看堆栈
+
+### [proj3](https://15445.courses.cs.cmu.edu/fall2021/project3/) Query Execution
+#### Executors
+- XxxPlanNode是`算子`语法树的节点
+- XxxExecutor包含某XxxPlanNode的指针，XXXExecutor树是XxxPlanNode树结构的镜像。后序遍历XxxExecutor树，也就后序遍历了XxxPlanNode。executor的Next()过程：从child_executor(s)获取输入tuple(s)，若tuple(s)满足plan.expression谓词就输出，输出plan.output_schema要求的列。
+- AbstractExpression是XxxPlanNode所含的`表达式`（表达式语法树的根节点），在child_executor(s)返回的tuple(s)上求值
+
+##### SeqScanExecutor
+- 遍历先获取table_iterator：catalog => table_info => table_heap => table_iterator
+- tuple先通过predicate判断，再提取output_schema指定字段
+##### InsertExecutor
+- 从raw_values创建或从child_executor获取tuple，插入数据库、更新索引
+- 索引键不能直接用tuple，要`tuple.KeyFromTuple()`转一下
+##### UpdateExecutor
+- InsertExecutor/UpdateExecutor/DeleteExecutor不能修改result_set，要修改execution_engine的Execute()
+##### HashJoinExecutor
+- `std::unordered_map`如果用自定义类型作key，该类型要实现：
+
+  ```
+  // 1. 判断相等的函数
+  struct Key {
+    bool operator==(const Key &other) const {
+      // ...
+    }
+  };
+
+  // 2. 计算hash值的函数
+  namespace std {
+  template <>
+  struct hash<Key> {
+    std::size_t operator()(const Key& k) const {
+      // ...
+    }
+  };
+  }
+  ```
+  参考AggregateKey实现HashJoinKey，hash表为`unordered_map<HashJoinKey, vector<Tuple>>`
+
+##### AggregationExecutor
+SimpleAggregationHashTable提供了聚合统计功能，SimpleAggregationHashTable::Iterator访问统计结果
+
+- 统计tuple到hash表：
+  ```
+  auto &agg_key = MakeAggregateKey(&tuple);   // group_bys的那些列作为agg_key
+  auto &agg_val = MakeAggregateValue(&tuple); // aggregates的那些列作为agg_val
+  aht_.InsertCombine(agg_key, agg_val);       // SimpleAggregationHashTable的统计方法
+  ```
+##### gradescope坑
+提交gradescope遇到
+> /autograder/bustub/build/googletest-src/googletest/include/gtest/gtest.h:1358:11: error: The left operand of '==' is a garbage value [clang-analyzer-core.UndefinedBinaryOperatorResult,-warnings-as-errors]
+  if (lhs == rhs) { ...
+
+要在官方给的zip打包命令中加上`src/include/storage/page/tmp_tuple_page.h`文件
+

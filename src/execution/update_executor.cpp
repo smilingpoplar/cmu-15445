@@ -17,11 +17,36 @@ namespace bustub {
 
 UpdateExecutor::UpdateExecutor(ExecutorContext *exec_ctx, const UpdatePlanNode *plan,
                                std::unique_ptr<AbstractExecutor> &&child_executor)
-    : AbstractExecutor(exec_ctx) {}
+    : AbstractExecutor(exec_ctx), plan_(plan), child_executor_(std::move(child_executor)) {
+  table_info_ = exec_ctx_->GetCatalog()->GetTable(plan_->TableOid());
+}
 
-void UpdateExecutor::Init() {}
+void UpdateExecutor::Init() { child_executor_->Init(); }
 
-auto UpdateExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool { return false; }
+auto UpdateExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
+  Tuple src_tup;  // 待更新元组
+  if (!child_executor_->Next(&src_tup, rid)) {
+    return false;
+  }
+  auto dst_tup = GenerateUpdatedTuple(src_tup);
+  // 更新数据库
+  auto txn = exec_ctx_->GetTransaction();
+  if (!table_info_->table_->UpdateTuple(dst_tup, *rid, txn)) {
+    return false;
+  }
+  // 更新索引
+  auto index_infos = exec_ctx_->GetCatalog()->GetTableIndexes(table_info_->name_);
+  for (auto index_info : index_infos) {
+    auto src_key =
+        src_tup.KeyFromTuple(table_info_->schema_, index_info->key_schema_, index_info->index_->GetKeyAttrs());
+    index_info->index_->DeleteEntry(src_key, *rid, txn);
+    auto dst_key =
+        src_tup.KeyFromTuple(table_info_->schema_, index_info->key_schema_, index_info->index_->GetKeyAttrs());
+    index_info->index_->InsertEntry(dst_key, *rid, txn);
+  }
+
+  return true;
+}
 
 auto UpdateExecutor::GenerateUpdatedTuple(const Tuple &src_tuple) -> Tuple {
   const auto &update_attrs = plan_->GetUpdateAttr();

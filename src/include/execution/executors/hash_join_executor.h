@@ -12,13 +12,38 @@
 
 #pragma once
 
+#include <deque>
 #include <memory>
+#include <unordered_map>
 #include <utility>
+#include <vector>
 
+#include "common/util/hash_util.h"
 #include "execution/executor_context.h"
 #include "execution/executors/abstract_executor.h"
 #include "execution/plans/hash_join_plan.h"
 #include "storage/table/tuple.h"
+
+namespace bustub {
+struct HashJoinKey {
+  Value val_;
+  auto operator==(const HashJoinKey &other) const -> bool { return val_.CompareEquals(other.val_) == CmpBool::CmpTrue; }
+};
+}  // namespace bustub
+
+namespace std {
+/** Implements std::hash on HashJoinKey */
+template <>
+struct hash<bustub::HashJoinKey> {
+  auto operator()(const bustub::HashJoinKey &key) const -> std::size_t {
+    size_t curr_hash = 0;
+    if (!key.val_.IsNull()) {
+      curr_hash = bustub::HashUtil::CombineHashes(curr_hash, bustub::HashUtil::HashValue(&key.val_));
+    }
+    return curr_hash;
+  }
+};
+}  // namespace std
 
 namespace bustub {
 
@@ -31,11 +56,12 @@ class HashJoinExecutor : public AbstractExecutor {
    * Construct a new HashJoinExecutor instance.
    * @param exec_ctx The executor context
    * @param plan The HashJoin join plan to be executed
-   * @param left_child The child executor that produces tuples for the left side of join
-   * @param right_child The child executor that produces tuples for the right side of join
+   * @param left_executor The child executor that produces tuples for the left side of join
+   * @param right_executor The child executor that produces tuples for the right side of join
    */
   HashJoinExecutor(ExecutorContext *exec_ctx, const HashJoinPlanNode *plan,
-                   std::unique_ptr<AbstractExecutor> &&left_child, std::unique_ptr<AbstractExecutor> &&right_child);
+                   std::unique_ptr<AbstractExecutor> &&left_executor,
+                   std::unique_ptr<AbstractExecutor> &&right_executor);
 
   /** Initialize the join */
   void Init() override;
@@ -54,6 +80,10 @@ class HashJoinExecutor : public AbstractExecutor {
  private:
   /** The NestedLoopJoin plan node to be executed. */
   const HashJoinPlanNode *plan_;
+  std::unique_ptr<AbstractExecutor> left_executor_;
+  std::unique_ptr<AbstractExecutor> right_executor_;
+  std::unordered_map<HashJoinKey, std::vector<Tuple>> ht_;
+  std::deque<Tuple> result_;
 };
 
 }  // namespace bustub

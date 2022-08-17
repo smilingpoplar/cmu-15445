@@ -55,12 +55,15 @@ class ExecutionEngine {
     // Prepare the root executor
     executor->Init();
 
+    auto type = plan->GetType();
+    bool ignore_result_set = type == PlanType::Insert || type == PlanType::Update || type == PlanType::Delete;
+
     // Execute the query plan
     try {
       Tuple tuple;
       RID rid;
       while (executor->Next(&tuple, &rid)) {
-        if (result_set != nullptr) {
+        if (!ignore_result_set && result_set != nullptr) {
           result_set->push_back(tuple);
         }
       }
